@@ -11,6 +11,7 @@ dockerapp_ynh_incontainer () {
 
 # docker driver setter
 dockerapp_ynh_driversetter () {
+	mkdir -p /etc/docker
 	echo -e "{\n\t\"debug\": false,\n\t\"storage-driver\": \"$1\"\n}\n" > /etc/docker/daemon.json
 	systemctl stop docker >/dev/null 2>&1
 	rm -rf /var/lib/docker
@@ -31,12 +32,18 @@ dockerapp_ynh_checkinstalldocker () {
 		systemctl enable docker
 		curl -L https://github.com/docker/compose/releases/download/1.18.0/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
 
-		#for d in overlay2 overlay devicemapper aufs vfs
-		#do
-		#	echo "apply $d driver and test it"
-		#	[ "$(dockerapp_ynh_driversetter $d)" == "0" ] && echo "$d driver will be used" 1>&2 && break
-		#done
-
+		# first test
+		ret=$(sh _dockertest.sh)
+		if [ $ret != 0 ]
+		then
+			# try change driver
+			for d in overlay2 overlay devicemapper aufs vfs
+			do
+				echo "apply $d driver and test it"
+				[ "$(dockerapp_ynh_driversetter $d)" == "0" ] && echo "$d driver will be used" 1>&2 && break
+			done
+		fi
+		
 		# retest
 		ret=$(sh _dockertest.sh)
 	fi
